@@ -42,7 +42,6 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
                     <th>DNI</th>
                     <th>Dificultad</th>
                     <th>NumBandera</th>
@@ -53,7 +52,6 @@
             <tbody>
                 {% for post in posts %}
                 <tr>
-                    <td>{{ loop.index }}</td>
                     <td>{{ post.DNI }}</td>
                     <td>{{ post.Dificultad }}</td>
                     <td>{{ post.NumBandera }}</td>
