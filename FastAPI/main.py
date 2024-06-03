@@ -56,12 +56,13 @@ def create_post(data: PostData):
     conn = sqlite3.connect('posts.db')
     cursor = conn.cursor()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    data.timestamp = timestamp
     cursor.execute("INSERT INTO posts (DNI, Dificultad, NumBandera, codigo, timestamp) VALUES (?, ?, ?, ?, ?)",
                  (data.DNI, data.Dificultad, data.NumBandera, data.codigo, timestamp))
+    new_id = cursor.lastrowid  # Obtener el ID de la fila insertada
     conn.commit()
     conn.close()
-    return data
+    return PostData(id=new_id, **data.dict())  # Crear una nueva instancia de PostData con el ID correcto
+
 
 @app.get("/get/", response_model=List[PostData])
 def read_posts(dni: Optional[str] = Query(None, example="12345678")):
@@ -85,18 +86,29 @@ async def read_root(request: Request):
     fetched_posts = cursor.fetchall()
     sorted_posts = [PostData(id=post[0], DNI=post[1], Dificultad=post[2], NumBandera=post[3], codigo=post[4], timestamp=post[5]) for post in fetched_posts]
     colored_posts = colorize_posts(sorted_posts)
+    indexed_posts = [(index, post) for index, post in enumerate(colored_posts)]  # Agregar índices a cada post
     conn.close()
-    return templates.TemplateResponse("index.html", {"request": request, "posts": colored_posts})
+    return templates.TemplateResponse("index.html", {"request": request, "posts": indexed_posts})
 
 
-@app.delete("/delete/{index}")
-def delete_post(index: int):
+@app.delete("/delete/")
+def delete_post(dni: str, num_bandera: int, dificultad: int):
     conn = sqlite3.connect('posts.db')
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM posts WHERE rowid = ?", (index + 1,))
+    # Verificar si la entrada existe antes de intentar eliminarla
+    cursor.execute("SELECT COUNT(*) FROM posts WHERE DNI = ? AND NumBandera = ? AND Dificultad = ?", (dni, num_bandera, dificultad))
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Entrada no encontrada")
+    
+    # Eliminar la entrada
+    cursor.execute("DELETE FROM posts WHERE DNI = ? AND NumBandera = ? AND Dificultad = ?", (dni, num_bandera, dificultad))
     conn.commit()
     conn.close()
     return {"message": "Entrada eliminada correctamente"}
+
 
 @app.delete("/delete_all")
 def delete_all_posts():
