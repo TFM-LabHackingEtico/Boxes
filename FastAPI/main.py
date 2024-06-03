@@ -4,6 +4,8 @@ from typing import List, Optional
 from fastapi.responses import HTMLResponse # type: ignore
 from fastapi.templating import Jinja2Templates # type: ignore
 import random
+from datetime import datetime  # Importa datetime para obtener la fecha y hora actual
+
 
 app = FastAPI()
 
@@ -13,6 +15,7 @@ class PostData(BaseModel):
     Dificultad: int = Field(..., ge=1, le=5, example=3)
     NumBandera: int = Field(..., ge=0, example=5)
     codigo: str = Field(..., example="examplecode")
+    timestamp: datetime = Field(default_factory=datetime.now)  # Campo para almacenar la fecha y hora de la publicación
 
 # Almacenamiento en memoria para las entradas POST
 posts_db = []
@@ -22,6 +25,8 @@ templates = Jinja2Templates(directory="templates")
 
 @app.post("/post/", response_model=PostData)
 def create_post(data: PostData):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data.timestamp = timestamp
     posts_db.append(data)
     return data
 
@@ -49,7 +54,8 @@ def colorize_posts(posts):
             # Cambiar el color para un nuevo DNI
             color = random_light_color()
             prev_dni = post.DNI
-        colored_posts.append({"DNI": post.DNI, "Dificultad": post.Dificultad, "NumBandera": post.NumBandera, "codigo": post.codigo, "color": color})
+        # Formatear el timestamp usando strftime
+        colored_posts.append({"DNI": post.DNI, "Dificultad": post.Dificultad, "NumBandera": post.NumBandera, "codigo": post.codigo, "timestamp": post.timestamp, "color": color})
     return colored_posts
 
 def random_light_color():
@@ -57,5 +63,18 @@ def random_light_color():
     g = random.randint(200, 255)
     b = random.randint(200, 255)
     return f"rgb({r}, {g}, {b})"
+
+@app.delete("/delete/{index}")
+def delete_post(index: int):
+    try:
+        del posts_db[index]
+        return {"message": "Entrada eliminada correctamente"}
+    except IndexError:
+        raise HTTPException(status_code=404, detail="Índice fuera de rango")
+
+@app.delete("/delete_all")
+def delete_all_posts():
+    posts_db.clear()
+    return {"message": "Todas las entradas eliminadas correctamente"}
 
 # Inicia el servidor con: uvicorn main:app --reload
